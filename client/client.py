@@ -29,7 +29,16 @@ template1 = {
             "type": "static",
             "value_type": "string",
             "static_value": "123456789"
+        },
+        {
+            "label": "luminosity",
+            "type": "actuator",
+            "value_type": "float",
+            "extra":{
+                "path": "5000/0/2"
+            }
         }
+
     ]
 }
 

@@ -203,7 +203,7 @@ public class LwM2mAgent {
             // Define model provider
             List<ObjectModel> models = ObjectLoader.loadDefault();
             models.addAll(ObjectLoader.loadDdfResources("/models/", modelPaths));
-            modelProvider = new StaticModelProvider(models);
+            modelProvider = new DinamicModelProvider(models);
             builder.setObjectModelProvider(modelProvider);
 
             // Start Server
