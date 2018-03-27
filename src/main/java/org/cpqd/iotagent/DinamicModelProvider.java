@@ -21,6 +21,7 @@ public class DinamicModelProvider implements LwM2mModelProvider {
     public DinamicModelProvider(LwM2mModel model) {
         this.model = model;
     }
+
     public void addObjectModel(ObjectModel objectModel ){
         LinkedList<ObjectModel> models = new LinkedList<ObjectModel>(model.getObjectModels());
         models.add(objectModel);

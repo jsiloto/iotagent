@@ -1,12 +1,54 @@
 package org.cpqd.iotagent;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 import org.eclipse.leshan.core.model.ResourceModel;
 
+import java.util.LinkedList;
+import java.util.List;
+
 public class DeviceAttribute {
+    String label;
+    String type;
+    String valueType;
+    String dynamicValue;
+    String staticValue;
 
-    public ResourceModel getResourceModel()
+    public DeviceAttribute(JsonElement json) {
+        label = json.getAsJsonObject().get("label").getAsString();
+        type = json.getAsJsonObject().get("type").getAsString();
+        valueType = json.getAsJsonObject().get("value_type").getAsString();
+        if (type.equals("dynamic")) {
+            dynamicValue = json.getAsJsonObject().get("dynamic_value").getAsString();
+        } else if (type.equals("actuator")) {
+            // Actuator does not have a value
+        } else {
+            staticValue = json.getAsJsonObject().get("static_value").getAsString();
+        }
+    }
 
+    public ResourceModel getLwm2mResourceModel(int num) {
+        ResourceModel model = new ResourceModel(num, label, getOpsFor(type), false, false,
+                getTypeFor(valueType), "", "", "");
+        return model;
+    }
+
+
+    public static String getLwm2mPath(JsonElement json) {
+        if (!json.getAsJsonObject().has("metadata")) {
+            return "";
+        }
+        JsonArray obj = json.getAsJsonObject().get("metadata").getAsJsonArray();
+        for (int i = 0; i < obj.size(); i++) {
+            DeviceAttribute attr = new DeviceAttribute(obj.get(i));
+            if (attr.type.equals("lwm2m")) {
+                return attr.staticValue;
+            }
+        }
+        return "";
+    }
 
     private ResourceModel.Type getTypeFor(String valueType) {
         switch (valueType) {
@@ -25,7 +67,7 @@ public class DeviceAttribute {
         }
     }
 
-    private ResourceModel.Operations getOpsFor(String type){
+    private ResourceModel.Operations getOpsFor(String type) {
         switch (type) {
             case "dynamic":
                 return ResourceModel.Operations.RW;

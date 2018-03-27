@@ -1,5 +1,8 @@
 package org.cpqd.iotagent;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import com.mashape.unirest.http.HttpResponse;
 import com.mashape.unirest.http.JsonNode;
 import com.mashape.unirest.http.Unirest;
@@ -11,19 +14,19 @@ import org.eclipse.leshan.core.model.ResourceModel;
 import org.eclipse.leshan.server.registration.Registration;
 import org.json.JSONArray;
 import org.json.JSONObject;
+import org.apache.commons.lang3.StringUtils;
 
 import java.awt.*;
 import java.io.File;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.Map;
+import java.util.*;
 
 public class DeviceManager {
 
     private String deviceUrl;
+    private DinamicModelProvider modelProvider;
     private Map<String, Registration> Devices = new HashMap<String, Registration>();
     private Map<String, String> Lwm2mDevices = new HashMap<String, String>();
+    int newResourceId = 5000;
 
     // Todo(jsiloto): This would be nicer as a JsonDeserializer for generic attributes
     public static String getStaticValue(String label, JSONObject data) {
@@ -61,77 +64,118 @@ public class DeviceManager {
 
 
 
-    public void RegisterModel(JSONObject data) {
+    public void RegisterModel(JsonElement device) {
 
 
+        Map<Integer, LinkedList<ResourceModel>> newModels =  new HashMap<Integer, LinkedList<ResourceModel>>();
         LinkedList<ResourceModel> resources;
 
-
-        ResourceModel resourceModel = new ResourceModel();
-
-        LwM2mModel model = new LwM2mModel();
+        String deviceLabel = device.getAsJsonObject().get("label").getAsString();
 
 
-
-        data = data.getJSONObject("attrs");
-        Iterator<?> templates = data.keys();
-        while (templates.hasNext()) {
-            String template = (String) templates.next();
-            JSONArray attr_list = data.getJSONArray(template);
-            for (int i = 0; i < attr_list.length(); i++) {
-                JSONObject attr = (JSONObject) attr_list.get(i);
-
-                // Check if attribute has Lwm2m path
-                if(attr.has("metadata")){
-
-
-
-
-                    if(attr.getJSONObject("metadata").has("path") && ){
-                        path = attr.getJSONObject("metadata").getString("path");
-                        String[] ids = path.split("/");
-
-
-                        //Check if object exists in modelprovider if not create
-                        //Check if resource exists in model
-                        //update model
+        // Get all ResourceModels for each attribute
+        JsonObject data = device.getAsJsonObject().get("attrs").getAsJsonObject();
+        Set<Map.Entry<String, JsonElement>> entrySet = data.entrySet();
+        for(Map.Entry<String,JsonElement> entry : entrySet){
+            for(JsonElement attr: entry.getValue().getAsJsonArray()){
+                System.out.println(attr);
+                DeviceAttribute dev = new DeviceAttribute(attr);
+                String path = DeviceAttribute.getLwm2mPath(attr);
+                if(!path.isEmpty()){
+                    path = StringUtils.stripStart(path, "/");
+                    String[] ids = path.split("/");
+                    LinkedList<ResourceModel> r = newModels.get(Integer.valueOf(ids[0]));
+                    if(r == null){
+                        newModels.put(Integer.valueOf(ids[0]), new LinkedList<ResourceModel>());
                     }
+                    newModels.get(Integer.valueOf(ids[0])).add(dev.getLwm2mResourceModel(Integer.valueOf(ids[2])));
                 }
-
-
-
-                String resourceName = attr.getString("label");
-                String valueType = attr.getString("value_type");
-                String type = attr.getString("type");
-                String path = "";
-
-
-
-
-                JSONObject attr = (JSONObject) attr_list.get(i);
-                if (attr.getString("label").equals(label)) {
-                    value = attr.getString("static_value");
-                }
-
-                ResourceModel model = new ResourceModel(i, resourceName, ResourceModel.Operations.RW, false,
-                        false, ResourceModel.Type.STRING, "", "", "");
-
-
             }
         }
 
-        int newId = 5000;
-        ObjectModel objectModel = new ObjectModel(newId, deviceLabel, "", false, false, );
+        // Iterate over discovered models, add if not already in the provider
+        for(Map.Entry<Integer, LinkedList<ResourceModel>> entry: newModels.entrySet()){
+            int i = entry.getKey();
+            LwM2mModel model = modelProvider.getObjectModel(null);
+            ObjectModel oldModel = model.getObjectModel(i);
+            if(oldModel == null){
+                ObjectModel objectModel = new ObjectModel(newResourceId, deviceLabel,
+                        "", "1", false, false, entry.getValue());
+                newResourceId ++;
+                modelProvider.addObjectModel(objectModel);
+            }
+        }
 
 
-        return value;
+
+
+
+
+//            String template = (String) templates.next();
+//            JsonArray attr_list = data.get()
+
+
+
+
+
+
+
+
+//
+//
+//            JSONArray attr_list = data.getJSONArray(template);
+//            for (int i = 0; i < attr_list.length(); i++) {
+//                JSONObject attr = (JSONObject) attr_list.get(i);
+//
+//                // Check if attribute has Lwm2m path
+//                if(attr.has("metadata")){
+//
+//
+//
+//
+//                    if(attr.getJSONObject("metadata").has("path")){
+//                        String path = attr.getJSONObject("metadata").getString("path");
+//                        String[] ids = path.split("/");
+//
+//
+//                        //Check if object exists in modelprovider if not create
+//                        //Check if resource exists in model
+//                        //update model
+//                    }
+//                }
+//
+//
+//
+//                String resourceName = attr.getString("label");
+//                String valueType = attr.getString("value_type");
+//                String type = attr.getString("type");
+//                String path = "";
+//
+//
+//
+//
+//                attr = (JSONObject) attr_list.get(i);
+//                if (attr.getString("label").equals(resourceName)) {
+//                    String value = attr.getString("static_value");
+//                }
+//
+//                ResourceModel model = new ResourceModel(i, resourceName, ResourceModel.Operations.RW, false,
+//                        false, ResourceModel.Type.STRING, "", "", "");
+//
+//
+//            }
+//        }
+
+//        int newId = 5000;
+//        ObjectModel objectModel = new ObjectModel(newId, deviceLabel, "", false, false, );
 
 
     }
 
 
-    public DeviceManager(String deviceManagerUrl) {
+    public DeviceManager(String deviceManagerUrl, DinamicModelProvider modelProvider) {
         this.deviceUrl = deviceManagerUrl + "/device";
+        this.modelProvider = modelProvider;
     }
 
     public void RegisterDevice(String service, String lwm2mId, String deviceModel, String serialNumber, Registration registration) {

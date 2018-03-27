@@ -16,6 +16,7 @@ public class LwM2MIoTAgent {
 
         consumerLoop.RegisterCallback("update", agent::update);
         consumerLoop.RegisterCallback("actuate", agent::actuate);
+        consumerLoop.RegisterCallback("create", agent::create);
         consumerLoop.run();
 
 
